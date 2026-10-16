@@ -1,28 +1,34 @@
 --[[
-    HANN VISUAL OUTFIT (FIXED)
-    Author: Hann
-    Fix notes (baca ini):
-      - BUG UTAMA: fungsi lama cari part kaki pakai nama R6 doang
-        ("Left Leg" / "Right Leg"). Kalau avatar lu R15, part itu
-        namanya "LeftUpperLeg" / "RightUpperLeg", jadi FindFirstChild
-        return nil dan fungsi langsung `return` diem-diem tanpa error.
-      - Sekarang pakai getLimb() yang nyoba kedua nama (R6 & R15).
-      - Ditambah warn() + Rayfield:Notify kalau part target nggak
-        ketemu, supaya kalau masih gagal, lu tau persis sebabnya
-        (bukan cuma "gak nongol" tanpa info).
-      - Ditambah sedikit delay sebelum weld biar CFrame udah settle
-        (menghindari offset aneh pas apply persis setelah spawn).
+    HANN VISUAL OUTFIT v2 (client-side only)
+    Key: HannOnTop
+
+    Fitur:
+      1. Korblox Deathwalker (kaki kanan)
+      2. Frozen Horns + efek frozen di atas kepala
+      3. Fire Horns + efek api di atas kepala
+      4. Headless Horseman (kepala saja)
+      5. 8-Bit Crown
+      6. Aksesoris mahal/trend (daftar bisa kamu edit di TREND_ACCESSORIES)
+      7. Copy Avatar (masukkan username -> tombol)
+
+    Catatan:
+      - Semua perubahan hanya terlihat di sisi kamu (client-side).
+      - Support R15 dan R6. R15 pakai asset Korblox/Headless asli;
+        R6 pakai versi buatan sendiri (mirip, bukan mesh asli).
 ]]
 
 -- ========== KEY SYSTEM ==========
-local VALID_KEY = "hannontop"
+local VALID_KEY = "HannOnTop"
 local keyVerified = false
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
 
 local keyGui = Instance.new("ScreenGui")
 keyGui.Name = "Hann_KeySystem"
 keyGui.ResetOnSpawn = false
 keyGui.DisplayOrder = 999999
-keyGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+keyGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local keyFrame = Instance.new("Frame")
 keyFrame.Size = UDim2.new(0, 400, 0, 220)
@@ -32,10 +38,7 @@ keyFrame.BorderSizePixel = 0
 keyFrame.Active = true
 keyFrame.Draggable = true
 keyFrame.Parent = keyGui
-
-local kfCorner = Instance.new("UICorner")
-kfCorner.CornerRadius = UDim.new(0, 12)
-kfCorner.Parent = keyFrame
+Instance.new("UICorner", keyFrame).CornerRadius = UDim.new(0, 12)
 
 local kfStroke = Instance.new("UIStroke")
 kfStroke.Color = Color3.fromRGB(100, 100, 255)
@@ -62,11 +65,9 @@ keyInput.PlaceholderText = "Masukkan key..."
 keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 keyInput.Font = Enum.Font.Gotham
 keyInput.TextSize = 16
+keyInput.ClearTextOnFocus = false
 keyInput.Parent = keyFrame
-
-local kiCorner = Instance.new("UICorner")
-kiCorner.CornerRadius = UDim.new(0, 8)
-kiCorner.Parent = keyInput
+Instance.new("UICorner", keyInput).CornerRadius = UDim.new(0, 8)
 
 local keyBtn = Instance.new("TextButton")
 keyBtn.Size = UDim2.new(1, -40, 0, 45)
@@ -78,10 +79,7 @@ keyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 keyBtn.Font = Enum.Font.GothamBold
 keyBtn.TextSize = 16
 keyBtn.Parent = keyFrame
-
-local kbCorner = Instance.new("UICorner")
-kbCorner.CornerRadius = UDim.new(0, 8)
-kbCorner.Parent = keyBtn
+Instance.new("UICorner", keyBtn).CornerRadius = UDim.new(0, 8)
 
 local keyStatus = Instance.new("TextLabel")
 keyStatus.Size = UDim2.new(1, 0, 0, 20)
@@ -93,8 +91,9 @@ keyStatus.Font = Enum.Font.Gotham
 keyStatus.TextSize = 12
 keyStatus.Parent = keyFrame
 
-keyBtn.MouseButton1Click:Connect(function()
-    if keyInput.Text == VALID_KEY then
+local function verifyKey()
+    local typed = keyInput.Text:gsub("^%s+", ""):gsub("%s+$", "")
+    if typed == VALID_KEY then
         keyVerified = true
         keyStatus.Text = "Key valid!"
         keyStatus.TextColor3 = Color3.fromRGB(100, 255, 100)
@@ -104,19 +103,20 @@ keyBtn.MouseButton1Click:Connect(function()
         keyStatus.Text = "Key salah!"
         keyStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
     end
-end)
+end
 
+keyBtn.MouseButton1Click:Connect(verifyKey)
 keyInput.FocusLost:Connect(function(enter)
-    if enter then keyBtn:Activate() end
+    if enter then verifyKey() end
 end)
 
 repeat task.wait(0.1) until keyVerified
 
--- ========== OBSIDIAN UI ==========
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- ========== UI ==========
+local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
 
 local Window = Rayfield:CreateWindow({
-    Name = "Hann Visual Outfit",
+    Name = "Hann Visual Outfit v2",
     Icon = 0,
     LoadingTitle = "Hann Visual",
     LoadingSubtitle = "by Hann",
@@ -128,488 +128,534 @@ local Window = Rayfield:CreateWindow({
 })
 
 local VisualTab = Window:CreateTab("Visual", 4483362458)
-local AnimTab = Window:CreateTab("Animasi", 4483362458)
-local MiscTab = Window:CreateTab("Misc", 4483362458)
+local AccTab = Window:CreateTab("Aksesoris", 4483362458)
+local CopyTab = Window:CreateTab("Copy Avatar", 4483362458)
 
--- ========== VARIABEL ==========
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
+local function notify(msg)
+    Rayfield:Notify({ Title = "Hann", Content = msg, Duration = 3, Image = 4483362458 })
+end
+
+-- ========== KONFIGURASI ==========
+local KORBLOX_RIGHT_LEG_ID = 139607718   -- Korblox Deathwalker Right Leg
+local HEADLESS_HEAD_ID     = 134082579   -- Headless Horseman
+
+-- Daftar aksesoris mahal/trend. Edit sesukamu: ["Nama"] = assetId
+-- Kalau ada ID yang gagal, script tinggal kasih warning dan lanjut ke berikutnya.
+local TREND_ACCESSORIES = {
+    ["Violet Valkyrie"]       = 1402432199,
+    ["Dominus Empyreus"]      = 21070012,
+    ["Dominus Infernus"]      = 31101391,
+    ["Dominus Frigidus"]      = 48545806,
+    ["Sparkle Time Fedora"]   = 1029025,
+    ["Domino Crown"]          = 1031429,
+}
+
+-- ========== STATE ==========
+local state = {
+    korblox = false,
+    headless = false,
+    frozenHorns = false,
+    fireHorns = false,
+    crown = false,
+}
+local baseDesc = nil          -- HumanoidDescription dasar (avatar asli / hasil copy)
+local activeAccs = {}         -- [id] = true, aksesoris tambahan yang aktif
+local selectedAccs = {}       -- pilihan dropdown
 
 -- ========== UTILITY ==========
 local function getChar()
     return LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 end
 
--- FIX: cari limb support R6 & R15 sekaligus, plus kasih tau kalau gagal
-local function getLimb(char, r6Name, r15Name)
-    local part = char:FindFirstChild(r6Name) or (r15Name and char:FindFirstChild(r15Name))
-    if not part then
-        warn("[Hann] Part tidak ditemukan: " .. r6Name .. (r15Name and (" / " .. r15Name) or ""))
-    end
-    return part
+local function getHum()
+    local char = getChar()
+    return char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
 end
 
-local function getLeg(char, side)
-    if side == "left" then
-        return getLimb(char, "Left Leg", "LeftUpperLeg")
-    else
-        return getLimb(char, "Right Leg", "RightUpperLeg")
-    end
+local function getHead()
+    return getChar():FindFirstChild("Head")
 end
 
-local function getHead(char)
-    return getLimb(char, "Head", "Head")
+local function newPart(parent, name, size, color, material, cf)
+    local p = Instance.new("Part")
+    p.Name = name
+    p.Size = size
+    p.Color = color
+    p.Material = material or Enum.Material.SmoothPlastic
+    p.CanCollide = false
+    p.CanQuery = false
+    p.CanTouch = false
+    p.Massless = true
+    p.Anchored = false
+    p.TopSurface = Enum.SurfaceType.Smooth
+    p.BottomSurface = Enum.SurfaceType.Smooth
+    p.CFrame = cf
+    p.Parent = parent
+    return p
 end
 
-local function createPart(parent, name, size, color, cframe)
-    local part = Instance.new("Part")
-    part.Name = name
-    part.Size = size
-    part.Color = color
-    part.Material = Enum.Material.Neon
-    part.CanCollide = false
-    part.CanQuery = false
-    part.Anchored = false
-    part.Massless = true
-    part.CFrame = cframe
-    part.Parent = parent
-    return part
-end
-
--- weld helper dengan sedikit delay supaya CFrame limb sudah settle
-local function weldChildren(model, targetLimb)
-    task.wait() -- 1 frame, biar CFrame target part stabil dulu
+local function weldModel(model, target)
     for _, p in ipairs(model:GetChildren()) do
         if p:IsA("BasePart") then
-            local weld = Instance.new("WeldConstraint")
-            weld.Part0 = targetLimb
-            weld.Part1 = p
-            weld.Parent = p
+            local w = Instance.new("WeldConstraint")
+            w.Part0 = target
+            w.Part1 = p
+            w.Parent = p
         end
     end
 end
 
--- ========== VISUAL: KORBLOX ==========
-local korbloxLeft = false
-local korbloxRight = false
-
-local function applyKorblox(side)
-    local char = getChar()
-    local leg = getLeg(char, side)
-    if not leg then
-        Rayfield:Notify({ Title = "Hann", Content = "Leg part tidak ketemu (cek rig R6/R15)", Duration = 3 })
-        return
-    end
-
-    local old = leg:FindFirstChild("HannKorblox")
-    if old then old:Destroy() end
-
-    local korblox = Instance.new("Model")
-    korblox.Name = "HannKorblox"
-
-    local mainPart = createPart(korblox, "Main", leg.Size, Color3.fromRGB(20, 20, 25), leg.CFrame)
-    mainPart.Transparency = 0.3
-
-    for i = 1, 3 do
-        local spike = createPart(korblox, "Spike" .. i, Vector3.new(0.3, 0.8, 0.3),
-            Color3.fromRGB(150, 0, 0),
-            leg.CFrame * CFrame.new(0, -0.5 - i * 0.3, 0))
-        spike.Shape = Enum.PartType.Cylinder
-        spike.Orientation = Vector3.new(0, 0, 90)
-    end
-
-    korblox.Parent = leg
-    weldChildren(korblox, leg)
-end
-
-local function removeKorblox(side)
-    local char = getChar()
-    local leg = getLeg(char, side)
-    if not leg then return end
-    local old = leg:FindFirstChild("HannKorblox")
+local function removeNamed(name)
+    local char = LocalPlayer.Character
+    if not char then return end
+    local old = char:FindFirstChild(name)
     if old then old:Destroy() end
 end
 
-VisualTab:CreateSection("Korblox")
-VisualTab:CreateToggle({
-    Name = "Korblox Kaki Kiri",
-    CurrentValue = false,
-    Flag = "KorbloxLeft",
-    Callback = function(v)
-        korbloxLeft = v
-        if v then applyKorblox("left") else removeKorblox("left") end
-    end
-})
-VisualTab:CreateToggle({
-    Name = "Korblox Kaki Kanan",
-    CurrentValue = false,
-    Flag = "KorbloxRight",
-    Callback = function(v)
-        korbloxRight = v
-        if v then applyKorblox("right") else removeKorblox("right") end
-    end
-})
+-- tinggi puncak kepala relatif ke pusat Head (R6 = 1, R15 ~ 1.2 tinggi)
+local function headTop(head)
+    return head.Size.Y / 2
+end
 
--- ========== VISUAL: FROZEN HORN ==========
-local frozenHorn = false
+-- ========== BODY (Korblox / Headless / Copy) via HumanoidDescription ==========
+local function snapshotBase()
+    local hum = getHum()
+    if hum then
+        local ok, desc = pcall(function() return hum:GetAppliedDescription() end)
+        if ok then baseDesc = desc end
+    end
+end
 
-local function applyFrozenHorn()
-    local char = getChar()
-    local head = getHead(char)
-    if not head then
-        Rayfield:Notify({ Title = "Hann", Content = "Head part tidak ketemu", Duration = 3 })
+local function loadAccessory(id)
+    local hum = getHum()
+    if not hum then return false end
+    local ok, err = pcall(function()
+        local asset = game:GetService("InsertService"):LoadAsset(id)
+        for _, obj in ipairs(asset:GetDescendants()) do
+            if obj:IsA("Accessory") then
+                local c = obj:Clone()
+                c.Name = "Hann_" .. c.Name
+                hum:AddAccessory(c)
+            end
+        end
+        asset:Destroy()
+    end)
+    if not ok then
+        warn("[Hann] Gagal load accessory " .. tostring(id) .. ": " .. tostring(err))
+    end
+    return ok
+end
+
+local function clearExtraAccessories()
+    local char = LocalPlayer.Character
+    if not char then return end
+    for _, a in ipairs(char:GetChildren()) do
+        if a:IsA("Accessory") and a.Name:sub(1, 5) == "Hann_" then a:Destroy() end
+    end
+end
+
+-- forward declaration
+local applyEffects
+
+local function render()
+    local hum = getHum()
+    if not hum then return end
+    if not baseDesc then snapshotBase() end
+    if not baseDesc then
+        notify("Gagal ambil data avatar")
         return
     end
 
-    local old = head:FindFirstChild("HannFrozenHorn")
-    if old then old:Destroy() end
+    local desc = baseDesc:Clone()
+    -- R15: pakai asset asli lewat HumanoidDescription. R6: ditangani applyR6Body().
+    if hum.RigType == Enum.HumanoidRigType.R15 then
+        if state.korblox then desc.RightLeg = KORBLOX_RIGHT_LEG_ID end
+        if state.headless then desc.Head = HEADLESS_HEAD_ID end
+    end
 
-    local horn = Instance.new("Model")
-    horn.Name = "HannFrozenHorn"
+    local ok, err = pcall(function() hum:ApplyDescription(desc) end)
+    if not ok then
+        warn("[Hann] ApplyDescription gagal: " .. tostring(err))
+        notify("Gagal apply (pastikan avatar R15)")
+        return
+    end
 
-    local icePart = createPart(horn, "IceHorn", Vector3.new(0.8, 2, 0.8),
-        Color3.fromRGB(150, 220, 255),
-        head.CFrame * CFrame.new(0, 1.2, 0))
-    icePart.Material = Enum.Material.Ice
+    task.wait(0.3)
+    for id in pairs(activeAccs) do loadAccessory(id) end
+    applyEffects()
+end
 
-    local particle = Instance.new("ParticleEmitter")
-    particle.Texture = "rbxassetid://243660364"
-    particle.Rate = 30
-    particle.Lifetime = NumberRange.new(0.5, 1.5)
-    particle.Speed = NumberRange.new(2, 5)
-    particle.Color = ColorSequence.new(Color3.fromRGB(180, 230, 255))
-    particle.Size = NumberSequence.new({
+-- ========== EFEK: HORNS ==========
+local function buildHorns(modelName, baseColor, tipColor, material)
+    local head = getHead()
+    if not head then return nil end
+    removeNamed(modelName)
+
+    local model = Instance.new("Model")
+    model.Name = modelName
+    local top = headTop(head)
+
+    for _, side in ipairs({ -1, 1 }) do
+        local seg1CF = head.CFrame
+            * CFrame.new(side * 0.4, top + 0.2, 0)
+            * CFrame.Angles(0, 0, -side * math.rad(12))
+        local seg1 = newPart(model, "HornBase", Vector3.new(0.45, 0.7, 0.45), baseColor, material, seg1CF)
+
+        local seg2CF = seg1CF
+            * CFrame.new(0, 0.55, 0)
+            * CFrame.Angles(0, 0, -side * math.rad(18))
+        local seg2 = newPart(model, "HornMid", Vector3.new(0.32, 0.6, 0.32), baseColor, material, seg2CF)
+
+        local seg3CF = seg2CF
+            * CFrame.new(0, 0.5, 0)
+            * CFrame.Angles(0, 0, -side * math.rad(18))
+        newPart(model, "HornTip", Vector3.new(0.18, 0.5, 0.18), tipColor, material, seg3CF)
+    end
+
+    -- anchor efek di atas kepala
+    local fx = newPart(model, "FxAnchor", Vector3.new(0.5, 0.5, 0.5), baseColor, Enum.Material.SmoothPlastic,
+        head.CFrame * CFrame.new(0, top + 1.6, 0))
+    fx.Transparency = 1
+
+    model.Parent = getChar()
+    weldModel(model, head)
+    return model, fx
+end
+
+local function applyFrozenHorns()
+    local model, fx = buildHorns("Hann_FrozenHorns",
+        Color3.fromRGB(150, 220, 255), Color3.fromRGB(230, 250, 255), Enum.Material.Ice)
+    if not model then notify("Head tidak ketemu") return end
+
+    local sparkles = Instance.new("Sparkles")
+    sparkles.SparkleColor = Color3.fromRGB(160, 230, 255)
+    sparkles.Parent = fx
+
+    local snow = Instance.new("ParticleEmitter")
+    snow.Rate = 25
+    snow.Lifetime = NumberRange.new(1.2, 2)
+    snow.Speed = NumberRange.new(0.5, 1.5)
+    snow.SpreadAngle = Vector2.new(180, 180)
+    snow.Acceleration = Vector3.new(0, -1.5, 0)
+    snow.LightEmission = 0.8
+    snow.Color = ColorSequence.new(Color3.fromRGB(200, 240, 255), Color3.fromRGB(120, 200, 255))
+    snow.Size = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.35),
+        NumberSequenceKeypoint.new(1, 0),
+    })
+    snow.Transparency = NumberSequence.new({
+        NumberSequenceKeypoint.new(0, 0.1),
+        NumberSequenceKeypoint.new(1, 1),
+    })
+    snow.Parent = fx
+
+    local light = Instance.new("PointLight")
+    light.Color = Color3.fromRGB(140, 210, 255)
+    light.Range = 8
+    light.Brightness = 1.5
+    light.Parent = fx
+end
+
+local function applyFireHorns()
+    local model, fx = buildHorns("Hann_FireHorns",
+        Color3.fromRGB(255, 90, 0), Color3.fromRGB(255, 210, 40), Enum.Material.Neon)
+    if not model then notify("Head tidak ketemu") return end
+
+    local fire = Instance.new("Fire")
+    fire.Size = 6
+    fire.Heat = 9
+    fire.Color = Color3.fromRGB(255, 140, 0)
+    fire.SecondaryColor = Color3.fromRGB(255, 40, 0)
+    fire.Parent = fx
+
+    local embers = Instance.new("ParticleEmitter")
+    embers.Rate = 30
+    embers.Lifetime = NumberRange.new(0.6, 1.2)
+    embers.Speed = NumberRange.new(2, 5)
+    embers.SpreadAngle = Vector2.new(25, 25)
+    embers.Acceleration = Vector3.new(0, 4, 0)
+    embers.LightEmission = 1
+    embers.Color = ColorSequence.new(Color3.fromRGB(255, 220, 60), Color3.fromRGB(255, 40, 0))
+    embers.Size = NumberSequence.new({
         NumberSequenceKeypoint.new(0, 0.3),
-        NumberSequenceKeypoint.new(1, 0)
+        NumberSequenceKeypoint.new(1, 0),
     })
-    particle.Parent = icePart
+    embers.Parent = fx
 
-    horn.Parent = head
-    weldChildren(horn, head)
+    local light = Instance.new("PointLight")
+    light.Color = Color3.fromRGB(255, 120, 20)
+    light.Range = 10
+    light.Brightness = 2
+    light.Parent = fx
 end
 
-local function removeFrozenHorn()
-    local char = getChar()
-    local head = getHead(char)
+-- ========== EFEK: 8-BIT CROWN ==========
+local function applyCrown()
+    local head = getHead()
+    if not head then notify("Head tidak ketemu") return end
+    removeNamed("Hann_8BitCrown")
+
+    local model = Instance.new("Model")
+    model.Name = "Hann_8BitCrown"
+    local gold = Color3.fromRGB(255, 205, 30)
+    local dark = Color3.fromRGB(210, 150, 0)
+    local px = 0.3
+    local top = headTop(head)
+    local origin = head.CFrame * CFrame.new(0, top + px / 2, 0)
+
+    -- pita dasar: 5 piksel melebar (x -2..2), tebal 1 piksel
+    for x = -2, 2 do
+        newPart(model, "Band", Vector3.new(px, px, px * 4),
+            (x % 2 == 0) and gold or dark, Enum.Material.Metal,
+            origin * CFrame.new(x * px, 0, 0))
+    end
+    -- 3 ujung mahkota (x = -2, 0, 2), tinggi 2 piksel
+    for _, x in ipairs({ -2, 0, 2 }) do
+        for y = 1, 2 do
+            newPart(model, "Spike", Vector3.new(px, px, px * 4), gold, Enum.Material.Metal,
+                origin * CFrame.new(x * px, y * px, 0))
+        end
+    end
+    -- permata merah di tengah pita (piksel)
+    newPart(model, "Gem", Vector3.new(px, px, px * 4.2), Color3.fromRGB(230, 30, 40),
+        Enum.Material.Neon, origin * CFrame.new(0, 0, 0))
+
+    model.Parent = getChar()
+    weldModel(model, head)
+end
+
+-- ========== R6: KORBLOX & HEADLESS (versi buatan sendiri) ==========
+local function applyR6Body()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.RigType ~= Enum.HumanoidRigType.R6 then return end
+
+    -- Headless: sembunyikan kepala + wajah
+    local head = char:FindFirstChild("Head")
     if head then
-        local old = head:FindFirstChild("HannFrozenHorn")
-        if old then old:Destroy() end
+        local t = state.headless and 1 or 0
+        head.Transparency = t
+        for _, d in ipairs(head:GetChildren()) do
+            if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = t end
+        end
     end
-end
 
-VisualTab:CreateSection("Horn")
-VisualTab:CreateToggle({
-    Name = "Frozen Horn",
-    CurrentValue = false,
-    Flag = "FrozenHorn",
-    Callback = function(v)
-        frozenHorn = v
-        if v then applyFrozenHorn() else removeFrozenHorn() end
-    end
-})
-
--- ========== VISUAL: FIRE HORN ==========
-local fireHorn = false
-
-local function applyFireHorn()
-    local char = getChar()
-    local head = getHead(char)
-    if not head then
-        Rayfield:Notify({ Title = "Hann", Content = "Head part tidak ketemu", Duration = 3 })
+    -- Korblox: kaki kanan diganti model tulang/armor gelap
+    removeNamed("Hann_KorbloxR6")
+    local leg = char:FindFirstChild("Right Leg")
+    if not leg then return end
+    if not state.korblox then
+        leg.Transparency = 0
         return
     end
 
-    local old = head:FindFirstChild("HannFireHorn")
-    if old then old:Destroy() end
+    leg.Transparency = 1
+    local model = Instance.new("Model")
+    model.Name = "Hann_KorbloxR6"
+    local armor = Color3.fromRGB(25, 25, 32)
+    local bone = Color3.fromRGB(210, 205, 190)
 
-    local horn = Instance.new("Model")
-    horn.Name = "HannFireHorn"
+    newPart(model, "Thigh", Vector3.new(1, 0.9, 1), armor, Enum.Material.Metal,
+        leg.CFrame * CFrame.new(0, 0.55, 0))
+    newPart(model, "Knee", Vector3.new(0.7, 0.3, 0.7), Color3.fromRGB(150, 0, 0), Enum.Material.Neon,
+        leg.CFrame * CFrame.new(0, 0.0, 0))
+    newPart(model, "Shin", Vector3.new(0.35, 0.8, 0.35), bone, Enum.Material.SmoothPlastic,
+        leg.CFrame * CFrame.new(0, -0.55, 0))
+    newPart(model, "Foot", Vector3.new(0.8, 0.3, 1.1), armor, Enum.Material.Metal,
+        leg.CFrame * CFrame.new(0, -0.85, -0.05))
 
-    local firePart = createPart(horn, "FireHorn", Vector3.new(0.8, 2, 0.8),
-        Color3.fromRGB(255, 100, 0),
-        head.CFrame * CFrame.new(0, 1.2, 0))
-    firePart.Material = Enum.Material.Neon
-
-    local particle = Instance.new("ParticleEmitter")
-    particle.Texture = "rbxassetid://243660364"
-    particle.Rate = 50
-    particle.Lifetime = NumberRange.new(0.3, 0.8)
-    particle.Speed = NumberRange.new(3, 8)
-    particle.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 200, 0)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
-    })
-    particle.Size = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 0.5),
-        NumberSequenceKeypoint.new(1, 0)
-    })
-    particle.Parent = firePart
-
-    horn.Parent = head
-    weldChildren(horn, head)
+    model.Parent = char
+    weldModel(model, leg)
 end
 
-local function removeFireHorn()
-    local char = getChar()
-    local head = getHead(char)
-    if head then
-        local old = head:FindFirstChild("HannFireHorn")
-        if old then old:Destroy() end
-    end
+-- ========== SINKRON EFEK ==========
+applyEffects = function()
+    applyR6Body()
+    removeNamed("Hann_FrozenHorns")
+    removeNamed("Hann_FireHorns")
+    removeNamed("Hann_8BitCrown")
+    if state.frozenHorns then applyFrozenHorns() end
+    if state.fireHorns then applyFireHorns() end
+    if state.crown then applyCrown() end
 end
 
+-- ========== UI: VISUAL ==========
+VisualTab:CreateSection("Body (R15 & R6)")
 VisualTab:CreateToggle({
-    Name = "Fire Horn",
+    Name = "Korblox Deathwalker (Kaki Kanan)",
     CurrentValue = false,
-    Flag = "FireHorn",
+    Flag = "Korblox",
     Callback = function(v)
-        fireHorn = v
-        if v then applyFireHorn() else removeFireHorn() end
+        state.korblox = v
+        render()
     end
 })
-
--- ========== VISUAL: HEADLESS ==========
-local headless = false
-
-local function applyHeadless()
-    local char = getChar()
-    local head = getHead(char)
-    if not head then return end
-    head.Transparency = 1
-    for _, d in ipairs(head:GetChildren()) do
-        if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 1 end
-    end
-end
-
-local function removeHeadless()
-    local char = getChar()
-    local head = getHead(char)
-    if not head then return end
-    head.Transparency = 0
-    for _, d in ipairs(head:GetChildren()) do
-        if d:IsA("Decal") or d:IsA("Texture") then d.Transparency = 0 end
-    end
-end
-
-VisualTab:CreateSection("Headless")
 VisualTab:CreateToggle({
     Name = "Headless Horseman",
     CurrentValue = false,
     Flag = "Headless",
     Callback = function(v)
-        headless = v
-        if v then applyHeadless() else removeHeadless() end
+        state.headless = v
+        render()
     end
 })
 
--- ========== VISUAL: 10 DOMINUS ==========
-local dominusActive = false
-
-local DOMINUS_NAMES = {
-    "Dominus Empyreus", "Dominus Frigidus", "Dominus Infernus",
-    "Dominus Astra", "Dominus Messor", "Dominus Vespertilio",
-    "Dominus Venari", "Dominus Formidulosus", "Dominus Aureus",
-    "Dominus Pittacium"
-}
-
-local function applyDominus()
-    local char = getChar()
-    local head = getHead(char)
-    if not head then
-        Rayfield:Notify({ Title = "Hann", Content = "Head part tidak ketemu", Duration = 3 })
-        return
-    end
-
-    local old = head:FindFirstChild("HannDominus")
-    if old then old:Destroy() end
-
-    local domFolder = Instance.new("Model")
-    domFolder.Name = "HannDominus"
-
-    local offset = -2
-    for _, name in ipairs(DOMINUS_NAMES) do
-        local part = createPart(domFolder, name, Vector3.new(1.5, 1.5, 1.5),
-            Color3.fromRGB(255, 215, 0),
-            head.CFrame * CFrame.new(offset, 1.5, 0))
-        part.Material = Enum.Material.Neon
-        part.Shape = Enum.PartType.Ball
-        offset = offset + 0.4
-    end
-
-    domFolder.Parent = head
-    weldChildren(domFolder, head)
-end
-
-local function removeDominus()
-    local char = getChar()
-    local head = getHead(char)
-    if head then
-        local old = head:FindFirstChild("HannDominus")
-        if old then old:Destroy() end
-    end
-end
-
-VisualTab:CreateSection("Dominus")
+VisualTab:CreateSection("Horns + Efek")
 VisualTab:CreateToggle({
-    Name = "10 Dominus",
+    Name = "Frozen Horns",
     CurrentValue = false,
-    Flag = "Dominus",
+    Flag = "FrozenHorns",
     Callback = function(v)
-        dominusActive = v
-        if v then applyDominus() else removeDominus() end
+        state.frozenHorns = v
+        if v then applyFrozenHorns() else removeNamed("Hann_FrozenHorns") end
+    end
+})
+VisualTab:CreateToggle({
+    Name = "Fire Horns",
+    CurrentValue = false,
+    Flag = "FireHorns",
+    Callback = function(v)
+        state.fireHorns = v
+        if v then applyFireHorns() else removeNamed("Hann_FireHorns") end
     end
 })
 
--- ========== ANIMASI ==========
-local animationIds = {
-    ["Default (R6)"] = "rbxassetid://507768375",
-    ["Default (R15)"] = "rbxassetid://507771019",
-    ["Ninja"] = "rbxassetid://656117400",
-    ["Toy"] = "rbxassetid://656121766",
-    ["Zombie"] = "rbxassetid://616163682",
-    ["Astronaut"] = "rbxassetid://891563461",
-    ["Mage"] = "rbxassetid://707742142",
-    ["Knight"] = "rbxassetid://657595757",
-    ["Cartoony"] = "rbxassetid://656117400",
-    ["Levitation"] = "rbxassetid://616006778"
-}
-
-local currentAnim = "Default (R6)"
-
-local function applyAnimation(animName)
-    local char = getChar()
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local animator = hum and hum:FindFirstChildOfClass("Animator")
-    if not animator then
-        warn("[Hann] Animator tidak ditemukan")
-        return
-    end
-
-    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-        track:Stop()
-    end
-
-    local animId = animationIds[animName]
-    if not animId then return end
-
-    local anim = Instance.new("Animation")
-    anim.AnimationId = animId
-
-    local ok, trackOrErr = pcall(function()
-        local track = animator:LoadAnimation(anim)
-        track:Play()
-        return track
-    end)
-    if not ok then
-        warn("[Hann] Gagal load animasi: " .. tostring(trackOrErr))
-    end
-end
-
-AnimTab:CreateSection("Pilih Animasi")
-AnimTab:CreateDropdown({
-    Name = "Animation Pack",
-    Options = {"Default (R6)", "Default (R15)", "Ninja", "Toy", "Zombie", "Astronaut", "Mage", "Knight", "Cartoony", "Levitation"},
-    CurrentOption = {"Default (R6)"},
-    Flag = "AnimSelect",
-    Callback = function(option)
-        currentAnim = option[1]
-        applyAnimation(currentAnim)
+VisualTab:CreateSection("Mahkota")
+VisualTab:CreateToggle({
+    Name = "8-Bit Crown",
+    CurrentValue = false,
+    Flag = "Crown",
+    Callback = function(v)
+        state.crown = v
+        if v then applyCrown() else removeNamed("Hann_8BitCrown") end
     end
 })
 
--- ========== MISC: INPUT ID ASSET ==========
-local shirtId, pantsId, accIds = "", "", ""
+-- ========== UI: AKSESORIS ==========
+local accNames = {}
+for name in pairs(TREND_ACCESSORIES) do table.insert(accNames, name) end
+table.sort(accNames)
 
-MiscTab:CreateSection("Shirt ID")
-MiscTab:CreateInput({
-    Name = "Shirt ID",
-    CurrentValue = "",
-    PlaceholderText = "Contoh: 123456789",
-    RemoveTextAfterFocusLost = false,
-    Flag = "ShirtId",
-    Callback = function(v) shirtId = v end
+AccTab:CreateSection("Aksesoris Mahal / Trend")
+AccTab:CreateDropdown({
+    Name = "Pilih Aksesoris",
+    Options = accNames,
+    CurrentOption = {},
+    MultipleOptions = true,
+    Flag = "TrendAccs",
+    Callback = function(opts)
+        selectedAccs = opts
+    end
 })
-
-MiscTab:CreateSection("Pants ID")
-MiscTab:CreateInput({
-    Name = "Pants ID",
-    CurrentValue = "",
-    PlaceholderText = "Contoh: 123456789",
-    RemoveTextAfterFocusLost = false,
-    Flag = "PantsId",
-    Callback = function(v) pantsId = v end
-})
-
-MiscTab:CreateSection("Accessory ID")
-MiscTab:CreateInput({
-    Name = "Accessory ID (pisahkan koma)",
-    CurrentValue = "",
-    PlaceholderText = "Contoh: 123456789, 987654321",
-    RemoveTextAfterFocusLost = false,
-    Flag = "AccIds",
-    Callback = function(v) accIds = v end
-})
-
-MiscTab:CreateSection("Apply")
-MiscTab:CreateButton({
-    Name = "Pasang ID Asset",
+AccTab:CreateButton({
+    Name = "Pasang yang Dipilih",
     Callback = function()
-        local char = getChar()
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if not hum then return end
-
-        if shirtId ~= "" then
-            local shirt = char:FindFirstChildOfClass("Shirt") or Instance.new("Shirt", char)
-            shirt.ShirtTemplate = "rbxassetid://" .. shirtId
-        end
-
-        if pantsId ~= "" then
-            local pants = char:FindFirstChildOfClass("Pants") or Instance.new("Pants", char)
-            pants.PantsTemplate = "rbxassetid://" .. pantsId
-        end
-
-        if accIds ~= "" then
-            for _, id in ipairs(string.split(accIds, ",")) do
-                id = id:gsub("%s+", "")
-                if id ~= "" then
-                    local ok, err = pcall(function()
-                        local acc = game:GetService("InsertService"):LoadAsset(tonumber(id))
-                        if acc then
-                            for _, obj in ipairs(acc:GetChildren()) do
-                                if obj:IsA("Accessory") then
-                                    local newAcc = obj:Clone()
-                                    hum:AddAccessory(newAcc)
-                                end
-                            end
-                            acc:Destroy()
-                        end
-                    end)
-                    if not ok then
-                        warn("[Hann] Gagal load accessory " .. id .. ": " .. tostring(err))
-                    end
-                end
+        if #selectedAccs == 0 then notify("Pilih aksesoris dulu") return end
+        local okCount = 0
+        for _, name in ipairs(selectedAccs) do
+            local id = TREND_ACCESSORIES[name]
+            if id and loadAccessory(id) then
+                activeAccs[id] = true
+                okCount = okCount + 1
             end
         end
-
-        Rayfield:Notify({ Title = "Hann", Content = "Asset terpasang!", Duration = 3, Image = 4483362458 })
+        notify(okCount .. "/" .. #selectedAccs .. " aksesoris terpasang")
     end
 })
 
--- ========== RE-APPLY ON RESPAWN ==========
+local customId = ""
+AccTab:CreateSection("ID Kustom")
+AccTab:CreateInput({
+    Name = "Accessory ID",
+    CurrentValue = "",
+    PlaceholderText = "Contoh: 1402432199",
+    RemoveTextAfterFocusLost = false,
+    Flag = "CustomAccId",
+    Callback = function(v) customId = v end
+})
+AccTab:CreateButton({
+    Name = "Pasang ID Kustom",
+    Callback = function()
+        local id = tonumber((customId:gsub("%s+", "")))
+        if not id then notify("ID tidak valid") return end
+        if loadAccessory(id) then
+            activeAccs[id] = true
+            notify("Aksesoris terpasang")
+        else
+            notify("Gagal memasang ID itu")
+        end
+    end
+})
+AccTab:CreateButton({
+    Name = "Lepas Semua Aksesoris Tambahan",
+    Callback = function()
+        activeAccs = {}
+        clearExtraAccessories()
+        notify("Aksesoris tambahan dilepas")
+    end
+})
+
+-- ========== UI: COPY AVATAR ==========
+local targetName = ""
+CopyTab:CreateSection("Copy Avatar Pemain")
+CopyTab:CreateInput({
+    Name = "Username",
+    CurrentValue = "",
+    PlaceholderText = "Masukkan username Roblox",
+    RemoveTextAfterFocusLost = false,
+    Flag = "CopyUsername",
+    Callback = function(v) targetName = v end
+})
+CopyTab:CreateButton({
+    Name = "Copy Avatar",
+    Callback = function()
+        local name = targetName:gsub("%s+", "")
+        if name == "" then notify("Isi username dulu") return end
+
+        local okId, userId = pcall(function()
+            return Players:GetUserIdFromNameAsync(name)
+        end)
+        if not okId or not userId then notify("Username tidak ditemukan") return end
+
+        local okDesc, desc = pcall(function()
+            return Players:GetHumanoidDescriptionFromUserId(userId)
+        end)
+        if not okDesc or not desc then notify("Gagal ambil avatar user itu") return end
+
+        baseDesc = desc
+        activeAccs = {}
+        clearExtraAccessories()
+        render()
+        notify("Avatar " .. name .. " disalin")
+    end
+})
+CopyTab:CreateButton({
+    Name = "Kembali ke Avatar Sendiri",
+    Callback = function()
+        local okDesc, desc = pcall(function()
+            return Players:GetHumanoidDescriptionFromUserId(LocalPlayer.UserId)
+        end)
+        if okDesc and desc then
+            baseDesc = desc
+            activeAccs = {}
+            clearExtraAccessories()
+            render()
+            notify("Avatar dikembalikan")
+        else
+            notify("Gagal mengembalikan avatar")
+        end
+    end
+})
+
+-- ========== RESPAWN ==========
+snapshotBase()
+
 LocalPlayer.CharacterAdded:Connect(function()
     task.wait(2)
-    if korbloxLeft then applyKorblox("left") end
-    if korbloxRight then applyKorblox("right") end
-    if frozenHorn then applyFrozenHorn() end
-    if fireHorn then applyFireHorn() end
-    if headless then applyHeadless() end
-    if dominusActive then applyDominus() end
-    applyAnimation(currentAnim)
+    if not baseDesc then snapshotBase() end
+    if state.korblox or state.headless or next(activeAccs) or baseDesc then
+        render()
+    end
 end)
 
-Rayfield:Notify({
-    Title = "Hann",
-    Content = "Visual Outfit Loaded!",
-    Duration = 5,
-    Image = 4483362458
-})
+notify("Visual Outfit v2 Loaded! (tekan K untuk sembunyikan UI)")
